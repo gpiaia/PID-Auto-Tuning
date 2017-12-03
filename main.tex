@@ -1,0 +1,230 @@
+\documentclass[journal, a4paper]{IEEEtran}
+
+\usepackage[portuguese]{babel}
+\usepackage{float}
+\usepackage[utf8]{inputenc}
+\usepackage{graphicx}
+\usepackage{amssymb}
+\usepackage{amsmath} 
+\usepackage[binary-units=true]{siunitx}
+\usepackage{listings}
+
+%\usepackage{pgfplots}
+
+%\usepackage[siunitx,american,europeanvoltages,emptydiodes,cuteinductors]{circuitikz}
+\usepackage{wasysym}
+%\usepackage{rotating}
+\usepackage{siunitx}
+%\usepackage{systeme}
+\usepackage{indentfirst}
+\sisetup{locale = FR}
+\usepackage{lettrine}
+
+\begin{document}
+
+% Define Título, autores ...
+	\title{PID}
+	\author{
+	\large
+	\textsc{Daniel Farias$^{1}$, Fabrício Zummach$^{1}$ e Guilherme A. Piaia$^{2}$}\\
+	\textsc{\textbf{Professor}: Joao Olegario De Oliveira De Souza} \\
+	\normalsize Universidade do Vale do Rio dos Sinos \\
+	\vspace{-5mm}
+    \thanks{$^{1}$Engenharia Eletrônica\newline $^{2}$Engenharia de Controle e Automação}
+	}
+	\date{}
+    \markboth{Relatório de Eletrônica de Potência$\quad\diamond\quad$ Novembro de 2017}{}
+	\maketitle
+  
+%---------------- Comentários gerais ---------------
+%Basta seguir a ordem do .pdf da prática, todas as fotos necessárias já estão colocadas na pasta IMGs.
+%Acredito ter colocado todas as imagens necessárias
+
+%Tabela não completa!
+
+%A parte do circuito de comando parece finalizada, falta a parte de potência, lembrando de escrever o que deve acontecer e o que aconteceu na prática
+%---------------------------------------------------
+  
+\begin{abstract}
+Este relatório descreve a montagem, verificação de funcionamento de cada etapa e medidas em um circuito inversor simples.
+\end{abstract}
+%--------------------------------------------------------
+%--------------------------------------------------------
+\section{Introdução}
+
+O inversor simples montado nesta prática é um conversor CC-CA, normalmente chamado de inversor de frequência. Converte uma tensão continua na entrada em uma tensão alternada na saída através do chaveamento de chaves eletrônicas através de um PWM.
+
+De forma clara, o objetivo do inversor de frequência é exatamente como mostra a forma de onda abaixo, a azul é o PWM com uma onda modulante senoidal, a forma de onda vermelha é a saída esperada na carga (após filtragem das harmônicas não-fundamentais causadas pelo chaveamento).
+
+\begin{figure}[H]\begin{center}
+	\includegraphics[width=6cm]{img/pwmsenoide.png} 
+	\caption{Formas de onda de um inversor de frequência}   
+	\label{fig:tf_p}
+\end{center}\end{figure}
+
+O circuito inversor simples está divido em circuito de comando e circuito de potência.
+
+%--------------------------------------------------------
+%--------------------------------------------------------
+\section{Circuito de comando}
+
+O circuito de comando envolve a geração de um PWM (com o UC3524N, que tem uma funcionalidade similar ao famoso LM555), juntamente com um circuito inversor para criar outro PWM inverso, já que são necessários ambos para fazer com que cada um dos dois braços de acionamento funcionem (Bootstraps).
+
+\subsection{Estágio de geração de sinal}
+
+Basicamente na saída, ponto P1, teremos um PWM com seu duty cycle sendo possível alterar de acordo com o valor do potenciômetro de $100k\Omega$.
+
+Na prática, o circuito funciona como deveria, gerando o PWM variável de acordo com o potenciômetro.
+
+\begin{figure}[H]\begin{center}
+	\includegraphics[width=6cm]{img/GeracaoSinais.png} 
+	\caption{Circuito de geração dos sinais de comando do conversor}   
+	\label{fig:tf_p}
+\end{center}\end{figure}
+
+\subsection{Estágio de inversão dos sinais gerados}
+
+É simplesmente um inversor baseado a transistor, sendo que o ponto P2 é o sinal invertido e o P3 o sinal não invertido, ou seja, o sinal P1 e P3 tem a mesma forma de onda, porém com amplitudes diferentes por conta da polarização do transistor.
+
+É possível observar na prática que esta etapa funciona corretamente, ao variar o potenciômetro e constatar que a inversão se mantem.
+
+\begin{figure}[H]\begin{center}
+	\includegraphics[width=6cm]{img/InversaoSinais.png} 
+	\caption{Circuito de inversão dos sinais gerados}   
+	\label{fig:tf_p}
+\end{center}\end{figure}
+
+\subsection{Estágio de acionamento (Bootstrap)}
+
+O circuito de acionamento das chaves eletrônicas é feito com o CI IR2111 (CI bootstrap dedicado para esta finalidade). Tem como função acionar corretamente as chaves eletrônicas (MOSFETs nesse caso) de forma a garantir que nunca sejam acionadas de forma que fiquem em curto-circuito.
+
+Para evitar problemas por montagem incorreta, primeiramente é montado uma topologia de teste que não oferece perigo.
+
+É verificado na prática que o gatilho de cada braço de acionamento funciona corretamente (ou seja, o circuito abaixo é montado duas vezes).
+
+Nesta etapa é muito importante garantir que o tempo morto entre os gatilhos (High e Low, saídas do IR2111 que vão para os MOFSFETs) exista, para evitar o curto-circuito temporário que pode ocorrer.
+
+\begin{figure}[H]\begin{center}
+	\includegraphics[width=6cm]{img/bootstrapteste.png} 
+	\caption{Circuito de comando Bootstrap configurado para teste braço individual}   
+	\label{fig:tf_p}
+\end{center}\end{figure}
+
+%--------------------------------------------------------
+%--------------------------------------------------------
+\section{Estágio de potência}
+
+O estágio de potência é onde efetivamente iremos acionar uma carga que consome maior corrente, ou seja, a topologia sera alterada para primeiramente teste de cada braço separadamente e depois com os dois braços (ponte completa) conectados na carga.
+
+Observe que é muito importante não esquecer de conectar os pontos médios da parte de potência nos pontos médios da parte de controle (IR2111).
+
+\subsection{Conversor CC-CC simples}
+
+Esta topologia permite testar separadamente cada braço com uma carga de potência e avaliar se estão funcionando corretamente.
+
+Espera-se observar na carga o chaveamento do PWM, alterando conforme o potenciômetro muda. Na prática foi isto que ocorreu.
+
+\begin{figure}[H]\begin{center}
+	\includegraphics[width=6cm]{img/conversorCC.png} 
+	\caption{Conversor CC-CC}   
+	\label{fig:tf_p}
+\end{center}\end{figure}
+
+\subsection{Inversor ponte completa}
+
+Esta é a topologia final, o acionamento de uma carga com entrada CC, convertendo para AC. Os MOSFETs são acionados em pares (1 e 3 e depois 2 e 4) para que a forma de onda na carga seja um AC. Considerando que este inversor simples não tem um filtro e que a carga é puramente resistiva, a forma de onda esperada na carga é justamente como mostra a figura 9.
+
+\begin{figure}[H]\begin{center}
+	\includegraphics[width=6cm]{img/inversorponte.png} 
+	\caption{Inversor de ponte completa}   
+	\label{fig:tf_p}
+\end{center}\end{figure}
+
+%--------------------------------------------------------
+%--------------------------------------------------------
+\section{Resultados: Medidas e cálculos}
+
+A tensão média na carga foi medida com um multímetro na escala DC. O cálculo da tensão média de um PWM pode ser realizado através da equação:
+
+\begin{gather}
+V_M = V_1(2.D-1)
+\end{gather} 
+
+Sendo que $V_1 = 15V$, D = Duty Cycle no momento.
+
+Logo, para D = 25\%, por exemplo:
+
+\begin{gather}
+V_M = 15.(2.0.25-1) = -7.5
+\end{gather} 
+
+A tabela abaixo é o compilado de todos os cálculos e as medidas da tensão média na carga.
+
+% Essa tabela não está querendo ir para o lugar correto, tentar arrumar ou coloca como imagem...
+\begin{table}[H]
+\centering
+\caption{Tensão média sobre a carga com multímetro}
+\label{my-label}
+\begin{tabular}{|c|c|c|}
+\hline
+\textbf{Ciclo (\%)} & \textbf{\begin{tabular}[c]{@{}c@{}}Tensão média\\ medida\end{tabular}} & \textbf{\begin{tabular}[c]{@{}c@{}}Tensão média\\ calculada\end{tabular}} \\ \hline
+\textbf{25}         & -7,68                                                                  & -7,5                                                                       \\ \hline
+\textbf{50}         & -0,11                                                                  & 0                                                                      \\ \hline
+\textbf{75}         & 7,42                                                                 & 7,5                                                                      \\ \hline
+
+\end{tabular}
+\end{table}
+
+Na forma de onda abaixo, o traçado laranja representa o ponto P2 e o traçado azul o P3. Além disso, $Ton = 540us $ e $T = 720us$ .
+
+\begin{figure}[H]\begin{center}
+	\includegraphics[width=6cm]{img/F0005TEK.png} 
+	\caption{Forma de onda de P2 e P3 com duty cycle de 75\%}   
+	\label{fig:tf_p}
+\end{center}\end{figure}
+
+Na forma de onda abaixo, o traçado laranja representa o HO de um dos bootstraps, assim como o traçado azul o LO. O duty cycle está em 75\%
+
+\begin{figure}[H]\begin{center}
+	\includegraphics[width=6cm]{img/F0008TEK.png} 
+	\caption{Forma de onda de HO e LO de um dos bootstraps com duty cycle de 75\%}   
+	\label{fig:tf_p}
+\end{center}\end{figure}
+
+Nas duas formas de onda abaixo, $Ton = 540us $ e $T = 720us$.
+
+\begin{figure}[H]\begin{center}
+	\includegraphics[width=6cm]{img/F0006TEK.png} 
+	\caption{Forma de onda na carga com duty cycle de 75\%}   
+	\label{fig:tf_p}
+\end{center}\end{figure}
+
+\begin{figure}[H]\begin{center}
+	\includegraphics[width=6cm]{img/F0007TEK.png} 
+	\caption{Forma de onda no ponto P1 com duty cycle de 75\%}   
+	\label{fig:tf_p}
+\end{center}\end{figure}
+
+Observa-se com os resultados demonstrados no relatório que o inversor simples proposto está montado e funcionando corretamente.
+
+
+%--------------------------------------------------------
+%--------------------------------------------------------
+\section{Conclusões}
+
+Inversores de frequência são sistemas muito úteis para o acionamentos de carga DC ou AC e o inversor simples montado neste relatório é o primeiro passo para o desenvolvimento deste tipo de sistema.
+
+Ao longo do trabalho o principal erro de montagem cometido foi não ligar os pontos médios de cada braço de potência com o seu respectivo Bootstrap, causando curto-circuito. Além disso, é muito importante seguir todo o passo a passo demonstrado, evitando de montar diretamente o circuito final, para diminuir as chances de algum acidente mais grave acontecer.
+
+%--------------------------------------------------------
+%--------------------------------------------------------
+\section{Bibliografia}
+
+BARBI, Ivo. Instrumentação. Eletrônica de Potência. 6 ed. do Autor, Florianópolis: INEP, 2006.
+
+Prof. Jefferson Pereira da Silva. Apostila de Eletrônica de Potência. Disponível em:
+http://professorcesarcosta.com.br.Acesso em Novembro de 2017.
+
+Notas de aula.
+
+\end{document}
