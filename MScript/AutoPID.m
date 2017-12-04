@@ -74,6 +74,9 @@ switch state
         xlabel('Tempo [s]')
         ylabel('Amplitude')
         legend(type,'Original', 'Anti-Windup');
+        Kp
+        Td
+        Ti
         
     %Cálculo e visualização do PID por relé
     case 3
@@ -94,6 +97,9 @@ switch state
         title('PID pelo método do Relé')
         xlabel('Tempo [s]')
         ylabel('Amplitude')
+        Kp
+        Td
+        Ti
     
     %Atraso de transporte
     case 4
@@ -106,6 +112,8 @@ switch state
         xlabel('Tempo [s]')
         ylabel('Amplitude')
         legend('Atraso','Original');
+        tau
+        theta
 end
 
 % Função para simular no simulink e visualizar as saídas
