@@ -2,6 +2,7 @@
 clc
 clear
 
+%state = 'relay';
 %state = 'Org';
 state = 'PID';
 %state = 'PI';
@@ -19,19 +20,55 @@ T = 1/10;
 Td = 1;
 tau = 1;
 theta = 1;
+h = 30;
 
-switch state
+switch state 
+    % Conjunto de lógicas para se calcular o T e outras carcterísicas
+    case 'pinfo' 
+        data = SSimulink(1,1);
+        PInfo(data);
+        plot(data)
+    
+    % Estado par visualizar a planta original
     case 'Org'
         data = SSimulink(1,1);
         plot(data)
+    
+    % Cálculo e visualização do pid
     case 'PID'
         Malha = 2; %Abre a malha
         data = SSimulink(1,1);
         CTauTheta(data);
         CalcPID('PID',tau, theta);
         Malha = 1; %Fecha a Malha
-        plot(SSimulink(2,1))
-    case 'tunnunig'
+        data = SSimulink(1,1);
+        plot(SSimulink(2,1), data.Time(), data.Data())
+        grid();
+        axis([0 750 -inf inf])
+        title('PID')
+        xlabel('Tempo [s]')
+        ylabel('Amplitude')
+        legend('PID','Original');
+        
+    case 'relay'
+        subplot(2,1,1);
+        plot(SSimulink(4,1));
+        grid();
+        axis([0 750 -inf inf])
+        title('Saida Relé')
+        xlabel('Tempo[s]')
+        ylabel('Amplitude')
+        
+        
+        subplot(2,1,2); 
+        axis([0 750 -inf inf])
+        relay(h);
+        plot(SSimulink(2,1));
+        grid();
+        axis([0 750 -inf inf])
+        title('PID por Relé')
+        xlabel('Tempo [s]')
+        ylabel('Amplitude')
     case 'show'       
 end
 
@@ -117,3 +154,39 @@ function CalcPID(type_controler, tau, theta)
     assignin('base', 'Ti', Ti);
     assignin('base', 'Td', Td);
 end
+
+function PInfo(data)
+    max = data.Data(1);
+    Mp = 0;
+    len = length(data.Time());
+
+    
+    for i=1:len-1
+        if (data.Data(i)>max)
+            max = data.Data(i);
+            Mp = (data.Data(i)-100)/100;
+        end
+    end
+    ts = 240; % Obtido de forma visual
+    xi = sqrt(((log(Mp)/pi)^2)/(1+(log(Mp)/pi)^2));
+    wn = 4/(ts*xi);
+    T = 2*pi/(10*wn);
+    
+    assignin('base', 'T', T);
+end
+
+function relay(h)
+    a = 137-90;
+    Kc = 4*h/(pi*a);
+    Tc = 1/2.99e-3;
+    Kp = 0.6*Kc;
+    Ti = Tc*0.5;
+    Td = Tc*0.125;
+    
+    assignin('base', 'Kp', Kp);
+    assignin('base', 'Ti', Ti);
+    assignin('base', 'Td', Td);
+end
+
+
+
