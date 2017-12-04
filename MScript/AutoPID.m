@@ -4,9 +4,11 @@ clear
 
 TypeControler = 1; % 1-Sem controle; 2-PID; 2-PID Anti-Windup
 TypeOutput = 1; %  1-Sistema; 2-Degrau usado para simular; 3-Atraso de transporte 
-T_PID = 1; % 1-PID; 2-PI+D
 N = 1;
 Malha = 1; % Controlar se a malha fica aberta ou fechada
+Dev = 1;
+CIPD = 1;
+AntiW = 1;
 
 %Definição de variáveis globais ao Simulink e mcode
 K=1;
@@ -23,7 +25,7 @@ h = 30;
 % PInfo(data);
 
 % Prompt para executar a opção desejada de controle
-prompt = 'Digite 1-Original,2-PID, 3-relé, 4-Atraso de Transporte:';
+prompt = 'Digite 1-Original,2-PID, 3-PI+D, 4-I+PD, 5-relé, 6-Atraso de Transporte:';
 state = input(prompt);
 
 switch state     
@@ -43,9 +45,10 @@ switch state
         Malha = 2; %Abre a malha
         data = SSimulink(1,1);
         CTauTheta(data);
-        CalcPID('PID',tau, theta);
+        CalcPID(tau, theta);
         Malha = 1; %Fecha a Malha
         data = SSimulink(1,1);
+        AntiA = 2; %Abilita o Anti-Windup
         dataaw = SSimulink(3,1);
         plot(SSimulink(2,1), data.Time(), data.Data(), dataaw.Time(), dataaw.Data())
         grid();
@@ -56,7 +59,7 @@ switch state
         legend('PID','Original', 'Anti-Windup');
         
     %Cálculo e visualização do PID por relé
-    case 3
+    case 5
         subplot(2,1,1);
         plot(SSimulink(4,1));
         grid();
@@ -74,8 +77,9 @@ switch state
         title('PID por Relé')
         xlabel('Tempo [s]')
         ylabel('Amplitude')
-        
-    case 4
+    
+    %Atraso de transporte
+    case 6
         data = SSimulink(1,1);
         CTauTheta(data);
         plot(SSimulink(1,3), data.Time(), data.Data())
@@ -91,7 +95,7 @@ end
 function [outputs] = SSimulink(a, b) 
         assignin('base', 'TypeControler', a);
         assignin('base', 'TypeOutput', b);
-        simOut = sim('TGB_V0000','SimulationMode','normal','AbsTol','1e-5',...
+        simOut = sim('TGB_V0001','SimulationMode','normal','AbsTol','1e-5',...
             'SaveState','on','StateSaveName','xout',...
             'SaveOutput','on','OutputSaveName','simout',...
             'SaveFormat', 'Dataset');
@@ -126,45 +130,19 @@ function [] = CTauTheta(data)
 end
 
 % Função para o cálculo dos parâmetros dos diferentes controladores
-function CalcPID(type_controler, tau, theta)
+function CalcPID(tau, theta)
     
     rtt = theta/tau;
-    switch type_controler
-        case 'P'
-            if rtt> 0.1 && rtt < 0.4
-                Kp = rtt^-1;
-                Ti = inf;
-                Td = 0;
-            end
-            if rtt >0.6 && rtt < 4.5
-                Kp = rtt^-1 + 1/3;
-                Ti = inf;
-                Td = 0;
-            end
-            
-        case 'PI'
-            if rtt> 0.1 && rtt < 0.4
-                Kp = 0.9*rtt^-1;
-                Ti = 3.33*tau*rtt;
-                Td = 0;
-            end
-            if rtt >0.6 && rtt < 4.5
-                Kp = 0.9*rtt^-1 + 0.082;
-                Ti = 3.33*tau*rtt*(1+rtt/11)/(1+2.2*rtt);
-                Td = 0;
-            end            
-        case 'PID'
-            if rtt> 0.1 && rtt <= 0.4
-                Kp = 1.2*tau/theta;
-                Ti = 2*theta;
-                Td = 0.5*theta;
-            end
-            if rtt >0.4 && rtt < 4.5
-                Kp = 1.35*rtt^-1 + 0.27;
-                Ti = 2.5*theta*(1+rtt/5)/(1+0.6*rtt);
-                Td = 0.37*theta/(1+0.2*rtt);
-            end  
+    if rtt> 0.1 && rtt <= 0.4
+        Kp = 1.2*tau/theta;
+        Ti = 2*theta;
+        Td = 0.5*theta;
     end
+    if rtt >0.4 && rtt < 4.5
+        Kp = 1.35*rtt^-1 + 0.27;
+        Ti = 2.5*theta*(1+rtt/5)/(1+0.6*rtt);
+        Td = 0.37*theta/(1+0.2*rtt);
+    end  
     assignin('base', 'Kp', Kp);
     assignin('base', 'Ti', Ti);
     assignin('base', 'Td', Td);
