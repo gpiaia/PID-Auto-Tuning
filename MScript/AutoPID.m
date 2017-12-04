@@ -2,74 +2,89 @@
 clc
 clear
 
-%state = 'relay';
-%state = 'Org';
-state = 'PID';
-%state = 'PI';
-
 TypeControler = 1; % 1-Sem controle; 2-PID; 2-PID Anti-Windup
 TypeOutput = 1; %  1-Sistema; 2-Degrau usado para simular; 3-Atraso de transporte 
 T_PID = 1; % 1-PID; 2-PI+D
 N = 1;
-Malha = 1;
+Malha = 1; % Controlar se a malha fica aberta ou fechada
 
+%Definição de variáveis globais ao Simulink e mcode
 K=1;
 Kp = 1;
 Ti = 100;
-T = 1/10;        
+T = 1/10; % Menor do que o valor calculado pela função PInfo    
 Td = 1;
 tau = 1;
 theta = 1;
 h = 30;
 
-switch state 
-    % Conjunto de lógicas para se calcular o T e outras carcterísicas
-    case 'pinfo' 
-        data = SSimulink(1,1);
-        PInfo(data);
-        plot(data)
-    
+% Conjunto de lógicas para se calcular o T e outras carcterísicas
+% data = SSimulink(1,1);
+% PInfo(data);
+
+% Prompt para executar a opção desejada de controle
+prompt = 'Digite 1-Original,2-PID, 3-relé, 4-Atraso de Transporte:';
+state = input(prompt);
+
+switch state     
     % Estado par visualizar a planta original
-    case 'Org'
+    case 1
         data = SSimulink(1,1);
-        plot(data)
+        plot(data);
+        grid();
+        axis([0 350 -inf inf])
+        title('Resposta ao degrau Original')
+        xlabel('Tempo [s]')
+        ylabel('Amplitude')
+        legend('Original');
     
-    % Cálculo e visualização do pid
-    case 'PID'
+    % Cálculo e visualização do PID
+    case 2
         Malha = 2; %Abre a malha
         data = SSimulink(1,1);
         CTauTheta(data);
         CalcPID('PID',tau, theta);
         Malha = 1; %Fecha a Malha
         data = SSimulink(1,1);
-        plot(SSimulink(2,1), data.Time(), data.Data())
+        dataaw = SSimulink(3,1);
+        plot(SSimulink(2,1), data.Time(), data.Data(), dataaw.Time(), dataaw.Data())
         grid();
-        axis([0 750 -inf inf])
+        axis([0 350 -inf inf])
         title('PID')
         xlabel('Tempo [s]')
         ylabel('Amplitude')
-        legend('PID','Original');
+        legend('PID','Original', 'Anti-Windup');
         
-    case 'relay'
+    %Cálculo e visualização do PID por relé
+    case 3
         subplot(2,1,1);
         plot(SSimulink(4,1));
         grid();
-        axis([0 750 -inf inf])
+        axis([0 350 -inf inf])
         title('Saida Relé')
         xlabel('Tempo[s]')
         ylabel('Amplitude')
         
-        
         subplot(2,1,2); 
-        axis([0 750 -inf inf])
+        axis([0 350 -inf inf])
         relay(h);
         plot(SSimulink(2,1));
         grid();
-        axis([0 750 -inf inf])
+        axis([0 350 -inf inf])
         title('PID por Relé')
         xlabel('Tempo [s]')
         ylabel('Amplitude')
-    case 'show'       
+        
+    case 4
+        data = SSimulink(1,1);
+        CTauTheta(data);
+        plot(SSimulink(1,3), data.Time(), data.Data())
+        grid();
+        axis([0 350 -inf inf])
+        title('Atraso de Transporte')
+        xlabel('Tempo [s]')
+        ylabel('Amplitude')
+        legend('Atraso','Original');
 end
 
 % Função para simular no simulink e visualizar as saídas
@@ -86,26 +101,26 @@ end
 function [] = CTauTheta(data)
 
         len = length(data.Time());
-        K = data.Data(len); % Valor em regime  permanente
+        K = data.Data(len)/100; % Valor em regime  permanente
         assignin('base', 'K', K);
+        
         % Laço para buscar os valores de tempo da resposta transitória
         c_t1 = 0;
         for i=1:len
-            if(data.Data(i)>=K*0.283 && c_t1==0)
+            if(data.Data(i)>=100*K*0.283 && c_t1==0)
                 t1 = data.Time(i);
                 c_t1 = 1;
             end
-            if(data.Data(i)>=K*0.632)
+            if(data.Data(i)>=100*K*0.632)
                 t2 = data.Time(i);
                 break
             end
         end
 
-        A = [1 1/3; 1 1];
-        B = [t1 ; t2];
-        C= linsolve(A,B);
-        theta = C(1,1);
-        tau = C(2,1);
+        %Solução do sistema linear para encontrar os valores de theta e tau
+        tau = (3/2)*(t2-t1);
+        theta = t2-tau;
+        
         assignin('base', 'tau', tau);
         assignin('base', 'theta', theta);
 end
@@ -160,18 +175,18 @@ function PInfo(data)
     Mp = 0;
     len = length(data.Time());
 
-    
+    % Busca por Mp
     for i=1:len-1
         if (data.Data(i)>max)
             max = data.Data(i);
             Mp = (data.Data(i)-100)/100;
         end
     end
+ 
     ts = 240; % Obtido de forma visual
     xi = sqrt(((log(Mp)/pi)^2)/(1+(log(Mp)/pi)^2));
     wn = 4/(ts*xi);
-    T = 2*pi/(10*wn);
-    
+    T = (10*wn)/2*pi;
     assignin('base', 'T', T);
 end
 
@@ -187,6 +202,3 @@ function relay(h)
     assignin('base', 'Ti', Ti);
     assignin('base', 'Td', Td);
 end
-
-
-
