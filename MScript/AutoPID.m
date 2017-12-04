@@ -2,7 +2,7 @@
 clc
 clear
 
-TypeControler = 1; % 1-Sem controle; 2-PID; 2-PID Anti-Windup
+TypeController = 1; % 1-Sem controle; 2-PID; 2-PID Anti-Windup
 TypeOutput = 1; %  1-Sistema; 2-Degrau usado para simular; 3-Atraso de transporte 
 N = 1;
 Malha = 1; % Controlar se a malha fica aberta ou fechada
@@ -25,7 +25,7 @@ h = 30;
 % PInfo(data);
 
 % Prompt para executar a opção desejada de controle
-prompt = 'Digite 1-Original,2-PID, 3-PI+D, 4-I+PD, 5-relé, 6-Atraso de Transporte:';
+prompt = 'Digite 1->Sistema Original, 2->PIDs controladores, 3->relé, 4->Atraso de Transporte:';
 state = input(prompt);
 
 switch state     
@@ -42,44 +42,61 @@ switch state
     
     % Cálculo e visualização do PID
     case 2
+        prompt = 'Digite 1-> PID, 2->PD+I, 3->I-PD:';
+        state2 = input(prompt);
+
         Malha = 2; %Abre a malha
         data = SSimulink(1,1);
         CTauTheta(data);
         CalcPID(tau, theta);
         Malha = 1; %Fecha a Malha
         data = SSimulink(1,1);
-        AntiA = 2; %Abilita o Anti-Windup
-        dataaw = SSimulink(3,1);
-        plot(SSimulink(2,1), data.Time(), data.Data(), dataaw.Time(), dataaw.Data())
+        type = 'PID';
+        if state2==2
+            Dev = 2; %Habilita o derivativo direto da realimentação
+            type = 'PI+D';
+        end
+        if state2 == 3
+            CIPD = 2;
+            Dev = 2;
+            type = 'I-PD';
+        end
+        
+        pid = SSimulink(2,1);
+ 
+        Dev = 2; %Habilita o derivativo direto da realimentação
+        AntiW = 2; %Habilita o Anti-Windup
+        anti = SSimulink(2,1);
+        plot(pid.Time(),pid.Data(), data.Time(), data.Data(), anti.Time(), anti.Data());
         grid();
         axis([0 350 -inf inf])
         title('PID')
         xlabel('Tempo [s]')
         ylabel('Amplitude')
-        legend('PID','Original', 'Anti-Windup');
+        legend(type,'Original', 'Anti-Windup');
         
     %Cálculo e visualização do PID por relé
-    case 5
+    case 3
         subplot(2,1,1);
-        plot(SSimulink(4,1));
+        plot(SSimulink(3,1));
         grid();
         axis([0 350 -inf inf])
-        title('Saida Relé')
+        title('Saíca com o uso do Relé')
         xlabel('Tempo[s]')
         ylabel('Amplitude')
         
         subplot(2,1,2); 
         axis([0 350 -inf inf])
-        relay(h);
+        relay(h); %Cálculo dos parâmetros do Controlador
         plot(SSimulink(2,1));
         grid();
         axis([0 350 -inf inf])
-        title('PID por Relé')
+        title('PID pelo método do Relé')
         xlabel('Tempo [s]')
         ylabel('Amplitude')
     
     %Atraso de transporte
-    case 6
+    case 4
         data = SSimulink(1,1);
         CTauTheta(data);
         plot(SSimulink(1,3), data.Time(), data.Data())
@@ -93,7 +110,7 @@ end
 
 % Função para simular no simulink e visualizar as saídas
 function [outputs] = SSimulink(a, b) 
-        assignin('base', 'TypeControler', a);
+        assignin('base', 'TypeController', a);
         assignin('base', 'TypeOutput', b);
         simOut = sim('TGB_V0001','SimulationMode','normal','AbsTol','1e-5',...
             'SaveState','on','StateSaveName','xout',...
@@ -103,7 +120,6 @@ function [outputs] = SSimulink(a, b)
 end
 
 function [] = CTauTheta(data)
-
         len = length(data.Time());
         K = data.Data(len)/100; % Valor em regime  permanente
         assignin('base', 'K', K);
@@ -131,13 +147,14 @@ end
 
 % Função para o cálculo dos parâmetros dos diferentes controladores
 function CalcPID(tau, theta)
-    
     rtt = theta/tau;
-    if rtt> 0.1 && rtt <= 0.4
+    %Z&N
+    if rtt> 0.1 && rtt <= 0.4 
         Kp = 1.2*tau/theta;
         Ti = 2*theta;
         Td = 0.5*theta;
     end
+    %CC
     if rtt >0.4 && rtt < 4.5
         Kp = 1.35*rtt^-1 + 0.27;
         Ti = 2.5*theta*(1+rtt/5)/(1+0.6*rtt);
@@ -164,7 +181,7 @@ function PInfo(data)
     ts = 240; % Obtido de forma visual
     xi = sqrt(((log(Mp)/pi)^2)/(1+(log(Mp)/pi)^2));
     wn = 4/(ts*xi);
-    T = (10*wn)/2*pi;
+    T = (100*wn)/2*pi;
     assignin('base', 'T', T);
 end
 
